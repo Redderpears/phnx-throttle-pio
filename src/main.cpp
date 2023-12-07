@@ -9,6 +9,8 @@ static void can_rcv(const CANMessage &inMessage) {
 
     uint8_t percent = inMessage.data[0];
 
+    Serial.printf("Received message, setting throttle to %f %", (float) percent);
+
     /*
     ESC uses differential voltage, so we need to invert our voltage.
     4092 is 3.1V, and the ESCs lowest value that will still move
