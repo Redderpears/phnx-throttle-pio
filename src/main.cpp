@@ -9,7 +9,7 @@ static void can_rcv(const CANMessage &inMessage) {
 
     uint8_t percent = inMessage.data[0];
 
-    Serial.printf("Received message, setting throttle to %f %", (float) percent);
+    Serial.printf("Received message, setting throttle to %hu %\n", percent);
 
     /*
     ESC uses differential voltage, so we need to invert our voltage.
@@ -26,10 +26,10 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(dac_pin, OUTPUT);
 
-    Serial.begin(9800);
+    Serial.begin(9600);
 
     // Our bus is 512k baud
-    ACAN_STM32_Settings sett{512'000};
+    ACAN_STM32_Settings sett{500'000};
     ACAN_STM32::Filters filters;
     // Only accept Set Speed messages
     filters.addExtendedMask(0x0000006, 0x0000006, ACAN_STM32::DATA, can_rcv, ACAN_STM32::FIFO0);
@@ -43,5 +43,5 @@ void setup() {
 }
 
 void loop() {
-    can.dispatchReceivedMessage();
+    can.dispatchReceivedMessage0();
 }
