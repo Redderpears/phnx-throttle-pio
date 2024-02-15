@@ -2,17 +2,11 @@
 #include "Arduino.h"
 #include "candefs.hpp"
 #include "utils.hpp"
+#include "STM32TimerInterrupt.h"
+#include "params.hpp"
+#include <atomic>
 
-// DAC output to ESC
-constexpr auto THROTTLE_PIN = PA4;
-// PWM output to steering servo
-constexpr auto STEERING_PIN = PA7;
-// Dac bit resolution
-constexpr auto DAC_BITS = 12;
-// Dac resolution
-constexpr auto DAC_RES = 1 << DAC_BITS;
-// Max steering angle of the kart, in degrees, symmetric
-constexpr float MAX_STEERING = 24.0; // TODO
+STM32Timer timer{TIM6};
 
 static void throttle_rcv(const CANMessage &inMessage) {
     // Blink the LED when we receive a CAN message
@@ -50,6 +44,50 @@ static void steering_rcv(const CANMessage &inMessage) {
     analogWrite(STEERING_PIN, uint16_t(angle_as_bits));
 }
 
+volatile std::atomic<uint32_t> ticks = 0;
+volatile uint32_t last_ticks = 0;
+
+static void timer_irq() {
+    uint32_t current_count = ticks.load();
+
+    float ticks_per_ms = 0;
+    uint32_t ticks_since_last_message = 0;
+
+    // Find tick rate, handling overflow
+    if (last_ticks > current_count) {
+        uint32_t ticks_pre_overflow = std::numeric_limits<uint32_t>::max() - last_ticks;
+
+        // Total ticks are ticks before we overflowed, and the ticks after
+        ticks_since_last_message = ticks_pre_overflow + current_count;
+        ticks_per_ms = float(ticks_since_last_message) / ENCODER_SAMPLE_PERIOD_US * 1000;
+    } else {
+        ticks_since_last_message = current_count - last_ticks;
+        ticks_per_ms = float(ticks_since_last_message) / ENCODER_SAMPLE_PERIOD_US * 1000;
+    }
+
+    // ticks/sec * ms/s * rot/ticks = rot/sec
+    float rps = ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH);
+    float rad_per_sec = rps * 2.0f * PI;
+
+    float meter_per_sec = rad_per_sec * WHEEL_CIRC_METER;
+
+    // Send can msg
+    Serial.printf("Speed: %f m/s\n", meter_per_sec);
+    CANMessage msg{};
+    msg.id = CanID::Encoder;
+    msg.len = 6;
+    msg.data16[0] = uint16_t(ticks_since_last_message);
+    msg.dataFloat[1] = meter_per_sec;
+
+    can.tryToSendReturnStatus(msg);
+
+    last_ticks = current_count;
+}
+
+static void inc_count() {
+    ticks.fetch_add(1);
+}
+
 void setup() {
     // Pin setup
     pinMode(LED_BUILTIN, OUTPUT);
@@ -72,6 +110,16 @@ void setup() {
 
     // Set our outputs to 12-bit resolution 0-4096
     analogWriteResolution(DAC_BITS);
+
+    // Setup timer for encoders (5ms)
+    if (timer.attachInterruptInterval(ENCODER_SAMPLE_PERIOD_US, timer_irq)) {
+        Serial.printf("Timer started successfully with period: %u", ENCODER_SAMPLE_PERIOD_US);
+    } else {
+        Serial.println("Timer init failed!");
+    }
+
+    // Encoder interrupt
+    attachInterrupt(ENCODER_PIN, inc_count, FALLING);
 }
 
 void loop() {
