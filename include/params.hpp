@@ -17,6 +17,6 @@ inline constexpr float MAX_STEERING = 24.0; // TODO
 /// Time between encoder messages being sent
 inline constexpr auto ENCODER_SAMPLE_PERIOD_US = 5 * 10000;
 /// Teeth on the encoder rings
-inline constexpr auto ENCODER_TEETH = 56.0f; // TODO verify
+inline constexpr auto ENCODER_TEETH = 50.0f;
 /// Wheel circumference in meters
 inline constexpr float WHEEL_CIRC_METER = 2 * PI * (0.13335 / 2);

@@ -8,6 +8,9 @@
 
 STM32Timer timer{TIM6};
 
+volatile std::atomic<bool> msg_to_send = false;
+volatile CANMessage encoder_msg;
+
 static void throttle_rcv(const CANMessage &inMessage) {
     // Blink the LED when we receive a CAN message
     digitalToggle(LED_BUILTIN);
@@ -48,6 +51,7 @@ volatile std::atomic<uint32_t> ticks = 0;
 volatile uint32_t last_ticks = 0;
 
 static void timer_irq() {
+    timer.detachInterrupt();
     uint32_t current_count = ticks.load();
 
     float ticks_per_ms = 0;
@@ -71,17 +75,17 @@ static void timer_irq() {
 
     float meter_per_sec = rad_per_sec * WHEEL_CIRC_METER;
 
-    // Send can msg
     Serial.printf("Speed: %f m/s\n", meter_per_sec);
-    CANMessage msg{};
-    msg.id = CanID::Encoder;
-    msg.len = 6;
-    msg.data16[0] = uint16_t(ticks_since_last_message);
-    msg.dataFloat[1] = meter_per_sec;
 
-    can.tryToSendReturnStatus(msg);
+    // Setup can message for main loop
+    encoder_msg.id = CanID::Encoder;
+    encoder_msg.len = 6;
+    encoder_msg.data16[0] = uint16_t(ticks_since_last_message);
+    encoder_msg.dataFloat[1] = meter_per_sec;
+    msg_to_send.store(true);
 
     last_ticks = current_count;
+    timer.attachInterruptInterval(ENCODER_SAMPLE_PERIOD_US, timer_irq);
 }
 
 static void inc_count() {
@@ -92,6 +96,8 @@ void setup() {
     // Pin setup
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(THROTTLE_PIN, OUTPUT);
+    pinMode(STEERING_PIN, OUTPUT);
+    pinMode(ENCODER_PIN, INPUT_PULLDOWN);
 
     Serial.begin(9600);
 
@@ -119,9 +125,16 @@ void setup() {
     }
 
     // Encoder interrupt
-    attachInterrupt(ENCODER_PIN, inc_count, FALLING);
+    attachInterrupt(ENCODER_PIN, inc_count, RISING);
 }
 
 void loop() {
     can.dispatchReceivedMessage();
+
+    noInterrupts();
+    if (msg_to_send.load()) {
+        can.tryToSendReturnStatus(const_cast<const CANMessage &>(encoder_msg));
+        msg_to_send.store(false);
+    }
+    interrupts();
 }
