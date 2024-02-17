@@ -84,7 +84,7 @@ static void timer_irq() {
     encoder_msg.ext = true;
     encoder_msg.len = 6;
     encoder_msg.data16[0] = uint16_t(ticks_since_last_message);
-    encoder_msg.dataFloat[1] = meter_per_sec;
+    ((float *) (encoder_msg.data + 2))[0] = meter_per_sec;
     msg_to_send.store(true);
 
     last_ticks = current_count;
