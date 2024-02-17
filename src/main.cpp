@@ -23,9 +23,10 @@ static void throttle_rcv(const CANMessage &inMessage) {
     ESC uses differential voltage, so we need to invert our voltage.
     4096 is 3.1V, and the ESCs lowest value that will still move
     with no load is 3.8, so this should match roughly to the
-    actual full range the ESC can be set to.
+    actual full range the ESC can be set to. TODO This doesnt seem to be true
     */
-    auto out_val = (uint16_t) (DAC_RES - (percent / 100.0) * DAC_RES);
+    auto out_val = (uint16_t) ((percent / 100.0) * 4092.0);
+    Serial.printf("Setting throttle to %hu %\n", out_val);
     analogWrite(THROTTLE_PIN, out_val);
 }
 
@@ -70,7 +71,8 @@ static void timer_irq() {
     }
 
     // ticks/sec * ms/s * rot/ticks = rot/sec
-    float rps = ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH);
+    float rps =
+            ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH); // TODO Update to not use teeth, and instead the geartrain
     float rad_per_sec = rps * 2.0f * PI;
 
     float meter_per_sec = rad_per_sec * WHEEL_CIRC_METER;
@@ -79,6 +81,7 @@ static void timer_irq() {
 
     // Setup can message for main loop
     encoder_msg.id = CanID::Encoder;
+    encoder_msg.ext = true;
     encoder_msg.len = 6;
     encoder_msg.data16[0] = uint16_t(ticks_since_last_message);
     encoder_msg.dataFloat[1] = meter_per_sec;
@@ -97,9 +100,9 @@ void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(THROTTLE_PIN, OUTPUT);
     pinMode(STEERING_PIN, OUTPUT);
-    pinMode(ENCODER_PIN, INPUT_PULLDOWN);
+    pinMode(ENCODER_PIN, INPUT_PULLUP);
 
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     // Our bus is 512k baud
     ACAN_STM32_Settings sett{500'000};

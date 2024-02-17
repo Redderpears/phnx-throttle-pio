@@ -15,8 +15,8 @@ inline constexpr auto DAC_RES = 1 << DAC_BITS;
 /// Max steering angle of the kart, in degrees, symmetric
 inline constexpr float MAX_STEERING = 24.0; // TODO
 /// Time between encoder messages being sent
-inline constexpr auto ENCODER_SAMPLE_PERIOD_US = 5 * 10000;
+inline constexpr auto ENCODER_SAMPLE_PERIOD_US = 10 * 1000;
 /// Teeth on the encoder rings
-inline constexpr auto ENCODER_TEETH = 50.0f;
+inline constexpr auto ENCODER_TEETH = 50.0f; // TODO
 /// Wheel circumference in meters
 inline constexpr float WHEEL_CIRC_METER = 2 * PI * (0.13335 / 2);
