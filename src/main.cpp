@@ -6,11 +6,6 @@
 #include "params.hpp"
 #include <atomic>
 
-STM32Timer timer{TIM6};
-
-volatile std::atomic<bool> msg_to_send = false;
-volatile CANMessage encoder_msg;
-
 static void throttle_rcv(const CANMessage &inMessage) {
     // Blink the LED when we receive a CAN message
     digitalToggle(LED_BUILTIN);
@@ -23,9 +18,9 @@ static void throttle_rcv(const CANMessage &inMessage) {
     ESC uses differential voltage, so we need to invert our voltage.
     4096 is 3.1V, and the ESCs lowest value that will still move
     with no load is 3.8, so this should match roughly to the
-    actual full range the ESC can be set to. TODO This doesnt seem to be true
+    actual full range the ESC can be set to.
     */
-    auto out_val = (uint16_t) ((percent / 100.0) * 4092.0);
+    auto out_val = (uint16_t) (DAC_RES - (percent / 100.0) * DAC_RES);
     Serial.printf("Setting throttle to %hu %\n", out_val);
     analogWrite(THROTTLE_PIN, out_val);
 }
@@ -48,8 +43,12 @@ static void steering_rcv(const CANMessage &inMessage) {
     analogWrite(STEERING_PIN, uint16_t(angle_as_bits));
 }
 
+volatile std::atomic<bool> msg_to_send = false;
+volatile CANMessage encoder_msg;
 volatile std::atomic<uint32_t> ticks = 0;
 volatile uint32_t last_ticks = 0;
+
+STM32Timer timer{TIM6};
 
 static void timer_irq() {
     timer.detachInterrupt();
@@ -134,6 +133,7 @@ void setup() {
 void loop() {
     can.dispatchReceivedMessage();
 
+    // Critical section over can message
     noInterrupts();
     if (msg_to_send.load()) {
         can.tryToSendReturnStatus(const_cast<const CANMessage &>(encoder_msg));
