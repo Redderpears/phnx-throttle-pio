@@ -20,7 +20,7 @@ static void throttle_rcv(const CANMessage &inMessage) {
     with no load is 3.8, so this should match roughly to the
     actual full range the ESC can be set to.
     */
-    auto out_val = (uint16_t) (DAC_RES - (percent / 100.0) * DAC_RES);
+    auto out_val = (uint16_t) (4092 - (percent / 100.0) * 4092);
     Serial.printf("Setting throttle to %hu %\n", out_val);
     analogWrite(THROTTLE_PIN, out_val);
 }
@@ -71,7 +71,7 @@ static void timer_irq() {
 
     // ticks/sec * ms/s * rot/ticks = rot/sec
     float rps =
-            ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH); // TODO Update to not use teeth, and instead the geartrain
+            ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH);
     float rad_per_sec = rps * 2.0f * PI;
 
     float meter_per_sec = rad_per_sec * WHEEL_CIRC_METER;
