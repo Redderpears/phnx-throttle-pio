@@ -38,7 +38,7 @@ static void steering_rcv(const CANMessage &inMessage) {
      * We assume the steering motor firmware has configured our max angle as full/0 duty cycle, so we map the range of
      * our steering angles from positive to negative linearly, inverting because left is positive.
      */
-    float angle_as_bits = mapfloat(-angle, -MAX_STEERING, MAX_STEERING, 0, DAC_RES);
+    float angle_as_bits = mapfloat(-angle, -MAX_STEERING, MAX_STEERING, 0, 4092.0);
 
     analogWrite(STEERING_PIN, uint16_t(angle_as_bits));
 }
