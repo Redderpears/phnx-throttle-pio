@@ -128,6 +128,9 @@ void setup() {
 
     // Encoder interrupt
     attachInterrupt(ENCODER_PIN, inc_count, RISING);
+
+    // Set steering to 50%
+    analogWrite(STEERING_PIN, 4092.0 / 2);
 }
 
 void loop() {
