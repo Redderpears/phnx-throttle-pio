@@ -5,27 +5,15 @@
 #include "STM32TimerInterrupt.h"
 #include "params.hpp"
 #include <atomic>
-
-static void throttle_rcv(const CANMessage &inMessage) {
-    // Blink the LED when we receive a CAN message
-    digitalToggle(LED_BUILTIN);
-
-    uint8_t percent = inMessage.data[0];
-
-    Serial.printf("Received message, setting throttle to %hu %\n", percent);
-
-    /*
-    ESC uses differential voltage, so we need to invert our voltage.
-    4096 is 3.1V, and the ESCs lowest value that will still move
-    with no load is 3.8, so this should match roughly to the
-    actual full range the ESC can be set to.
-    */
-    auto out_val = (uint16_t) (4092 - (percent / 100.0) * 4092);
-    Serial.printf("Setting throttle to %hu %\n", out_val);
-    analogWrite(THROTTLE_PIN, out_val);
-}
+#include <IWatchdog.h>
 
 static void steering_rcv(const CANMessage &inMessage) {
+    // Sanity check
+    if (inMessage.id != CanID::SetAngle) {
+        Serial.printf("Non steering msg in steering callback!\n");
+        return;
+    }
+
     // Blink the LED when we receive a CAN message
     digitalToggle(LED_BUILTIN);
 
@@ -107,8 +95,6 @@ void setup() {
     ACAN_STM32_Settings sett{500'000};
     ACAN_STM32::Filters filters;
 
-    // Throttle control messages
-    filters.addExtendedMask(CanID::SetSpeed, CanID::SetSpeed, ACAN_STM32::DATA, throttle_rcv, ACAN_STM32::FIFO0);
     // Steering control messages
     filters.addExtendedMask(CanID::SetAngle, CanID::SetAngle, ACAN_STM32::DATA, steering_rcv, ACAN_STM32::FIFO0);
 
@@ -131,9 +117,17 @@ void setup() {
 
     // Set steering to 50%
     analogWrite(STEERING_PIN, 4092.0 / 2);
+
+    if (IWatchdog.isReset(true)) {
+        Serial.println("Board reset via watchdog!");
+    }
+
+    // Reboot if main loop fails to cycle in 100ms (reboots board via hardware if it crashes)
+    IWatchdog.begin(100'000);
 }
 
 void loop() {
+    IWatchdog.reload();
     can.dispatchReceivedMessage();
 
     // Critical section over can message
