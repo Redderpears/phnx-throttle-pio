@@ -14,9 +14,6 @@ static void steering_rcv(const CANMessage &inMessage) {
         return;
     }
 
-    // Blink the LED when we receive a CAN message
-    digitalToggle(LED_BUILTIN);
-
     // Left positive angle in degrees
     float angle = inMessage.dataFloat[0];
 
@@ -120,6 +117,7 @@ void setup() {
 
     if (IWatchdog.isReset(true)) {
         Serial.println("Board reset via watchdog!");
+        digitalWrite(LED_BUILTIN, HIGH);
     }
 
     // Reboot if main loop fails to cycle in 100ms (reboots board via hardware if it crashes)
