@@ -39,8 +39,7 @@ static void timer_irq() {
 
     float ticks_per_ms = float(ticks_delta) / ENCODER_SAMPLE_PERIOD_US * 1000.0;
     float rps = ticks_per_ms * 1000.0f * (1.0f / ENCODER_TEETH);
-    float rad_per_sec = rps * 2.0f * PI;
-    float meter_per_sec = rad_per_sec * WHEEL_CIRC_METER;
+    float meter_per_sec = rps * WHEEL_CIRC_METER; // (1/s * meter = meter/s)
 
     Serial.printf("Speed: %f m/s\n", meter_per_sec);
 
